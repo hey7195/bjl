@@ -72,3 +72,22 @@ test("same-card stats can show single normal baccarat matches when requested", (
   assert.equal(stats.baccarat.length, 1);
   assert.equal(stats.baccarat[0].category, "baccarat");
 });
+
+test("same-card stats require exact suit and rank, not just display text", () => {
+  const store = tempStore();
+  saveBaccaratRound(store, { tableCode: "2", tableName: "百家乐2号", tableShortName: "百2", roundId: "normal-1" });
+  saveBaccaratRound(store, {
+    tableCode: "3",
+    tableName: "百家乐3号",
+    tableShortName: "百3",
+    roundId: "normal-2",
+    bankerRaw: ["P", "k"],
+    playerRaw: ["D", "S", "y"],
+    bankerCards: ["红桃2", "梅花J"],
+    playerCards: ["黑桃4", "红桃6", "方块Q"],
+  });
+
+  const stats = store.sameCardStats({ minCount: 2 });
+
+  assert.equal(stats.baccarat.length, 0);
+});
