@@ -1,0 +1,151 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>99贵宾会</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="full-screen" content="true" />
+    <meta name="screen-orientation" content="portrait" />
+    <meta name="x5-fullscreen" content="true" />
+    <meta name="360-fullscreen" content="true" />
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Expires" content="0">
+    <meta http-equiv="Cache" content="no-cache">
+    <script src="naplayer/new/video.js"></script>
+    <script src="naplayer/typings/WSAvcPlayer.js"></script>
+    <script src="naplayer/typings/Decoder.js"></script>
+    <script src="naplayer/typings/encryptCode.js"></script>
+    <script src="naplayer/typings/i18n.js"></script>
+    <script> window['electron'] = require('electron'); </script>
+    <style>
+        html, body {
+            -ms-touch-action: none;
+            background: #000000;
+            padding: 0;
+            border: 0;
+            margin: 0;
+            height: 100%;
+        }
+        video::-internal-media-controls-download-button {
+            display:none;
+        }
+        video::-webkit-media-controls-fullscreen-button {
+            display: none;
+        }
+        video::-webkit-media-controls-mute-button {
+            display: none;            
+        }
+        #logingBg{
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body id="body">
+    <div id="mainDiv" style="margin: auto;width: 100%;height: 100%;" class="egret-player"
+         data-entry-class="Main"
+         data-orientation="landscape"
+         data-scale-mode="showAll"
+         data-frame-rate="30"
+         data-content-width="1920"
+         data-content-height="1080"
+         data-show-paint-rect="false"
+         data-multi-fingered="2"
+         data-show-fps="false" data-show-log="false"
+         data-show-fps-style="x:0,y:0,size:12,textColor:0xffffff,bgAlpha:0.9">
+         <div id="logingBg" style="position: absolute; background: url('logingBg.jpg') no-repeat; background-size: contain;
+    background-position: center;"></div>
+         <div id="gameBg" style="position: absolute;"></div>
+         <div id="hallBg" style="position: absolute; visibility: hidden"></div>
+         <div id="infoStr" style="position: absolute;top: 80%;width: 100%;height: 58px;text-align: center;color: rgb(195, 172, 143);font-size: 20px;line-height: 50px;">...
+         </div>
+         <div style="width: 60%;position: absolute; top: 85%; left: 20%">
+            <div id ="progressBg" class="progress" style="width: 100%;margin: auto;background-color: rgb(0, 0, 0);height: 15px;border-radius: 16px;padding: 3px; border: 2px solid rgb(42, 26, 20);">
+                <div id="progressBar" class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0"
+                    aria-valuemax="100" style="width: 0%;background-image: linear-gradient(rgb(255, 252, 158), rgb(254, 226, 151), rgb(254, 192, 142));border-radius: 10px;height: 15px;">
+                </div>
+            </div>
+         </div>
+         <div id="game-small-video-player" style="visibility: hidden;position: absolute;"></div>
+         <div id="game-video-player" style="visibility: hidden;position: absolute;overflow: hidden;"></div>
+         <input type="text" id="chatInput" style="position: absolute;margin: 0;visibility: hidden;
+    padding: 0;
+    border: 0;
+    outline: none;
+    background: none;">
+    </div>
+<script>
+    var loadScript = function (list, callback) {
+        let infoStr = document.getElementById('infoStr');
+        let progress = document.getElementById('progressBar');
+        var loaded = 0;
+        infoStr.innerHTML = `正在加载资源 0/${list.length}`;
+        var loadNext = function () {
+            loadSingleScript(list[loaded], function () {
+                loaded++;
+                infoStr.innerHTML = `正在加载资源 ${loaded}/${list.length}`;
+                progress.style.width = (loaded / list.length) * 100 + '%';
+                if (loaded >= list.length) {
+                    callback();
+                }
+                else {
+                    loadNext();
+                }
+            })
+        };
+        loadNext();
+    };
+
+    var loadSingleScript = function (src, callback) {
+        var s = document.createElement('script');
+        s.async = false;
+        s.src = src;
+        s.addEventListener('load', function () {
+            s.parentNode.removeChild(s);
+            s.removeEventListener('load', arguments.callee, false);
+            callback();
+        }, false);
+        document.body.appendChild(s);
+    };
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', './manifest.json?v=' + Math.random(), true);
+    xhr.addEventListener("load", function () {
+        var manifest = JSON.parse(xhr.response);
+        var list = manifest.initial.concat(manifest.game);
+        loadScript(list, function () {
+            /**
+             * {
+             * "renderMode":, //Engine rendering mode, "canvas" or "webgl"
+             * "audioType": 0 //Use the audio type, 0: default, 2: web audio, 3: audio
+             * "antialias": //Whether the anti-aliasing is enabled in WebGL mode, true: on, false: off, defaults to false
+             * "calculateCanvasScaleFactor": //a function return canvas scale factor
+             * }
+             **/
+            egret.runEgret({
+                renderMode: "webgl", audioType: 0, calculateCanvasScaleFactor: function (context) {
+                    var backingStore = context.backingStorePixelRatio ||
+                        context.webkitBackingStorePixelRatio ||
+                        context.mozBackingStorePixelRatio ||
+                        context.msBackingStorePixelRatio ||
+                        context.oBackingStorePixelRatio ||
+                        context.backingStorePixelRatio || 1;
+                    return (window.devicePixelRatio || 1) / backingStore;
+                }
+            });
+        });
+    });
+    xhr.send(null);
+    window.addEventListener('contextmenu', (e) => { 
+        if(window['electron']) {
+            window['electron'].ipcRenderer.send('sigShowRightClickMenu');
+        }
+    }, false);
+</script>
+</body>
+
+</html>

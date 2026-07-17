@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>场馆开奖监控</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">场馆开奖监控</div>
+    <div id="status" class="status">连接中...</div>
+    <input id="tableSearch" class="search" placeholder="搜索桌台/编号/IP">
+    <div id="tables" class="tables"></div>
+  </aside>
+
+  <main class="main">
+    <section class="toolbar">
+      <div>
+        <h1 id="tableTitle">请选择桌台</h1>
+        <div id="tableMeta" class="muted">后台会 24 小时记录 TableInfoReplay 和 GameInfoReplay。</div>
+      </div>
+      <div class="actions">
+        <input id="roundSearch" class="search" placeholder="搜索局号">
+        <button id="refreshBtn">刷新</button>
+      </div>
+    </section>
+
+    <nav class="tabs">
+      <button id="tabRounds" class="tab active" data-tab="rounds">开奖记录</button>
+      <button id="tabSameCards" class="tab" data-tab="sameCards">同牌统计</button>
+    </nav>
+
+    <div id="roundsPanel" class="tab-panel">
+      <section id="videoBox" class="video-box hidden">
+        <div class="video-head">
+          <div class="section-title">视频流</div>
+          <button id="stopVideoBtn" class="small-btn">停止视频</button>
+        </div>
+        <div id="videoPlayerStatus" class="player-status">未选择视频流。</div>
+        <div id="videoPlayerMount" class="video-player-mount"></div>
+        <div id="videoUrls" class="video-urls"></div>
+      </section>
+
+      <section class="content">
+        <div class="rounds-wrap">
+          <div class="section-title">开奖记录</div>
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>局数</th>
+                <th>局号</th>
+                <th>类型</th>
+                <th>结果</th>
+                <th>牌面</th>
+                <th>写入</th>
+              </tr>
+            </thead>
+            <tbody id="rounds"></tbody>
+          </table>
+          <div class="pagination">
+            <label>
+              每页
+              <select id="pageSize">
+                <option value="20">20</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+              </select>
+            </label>
+            <button id="prevPageBtn" class="small-btn">上一页</button>
+            <label>
+              第
+              <input id="pageInput" class="page-input" type="number" min="1" value="1">
+              页
+            </label>
+            <button id="nextPageBtn" class="small-btn">下一页</button>
+            <span id="paginationStatus" class="muted"></span>
+          </div>
+        </div>
+
+        <div class="detail">
+          <div class="section-title">牌局详情</div>
+          <pre id="roundDetail">点击一条开奖记录查看原始字段。</pre>
+        </div>
+      </section>
+    </div>
+
+    <section id="sameCardsPanel" class="same-card-panel tab-panel hidden">
+      <div class="section-title">同牌统计</div>
+      <div id="sameCards" class="same-cards"></div>
+    </section>
+  </main>
+
+  <script src="/player/WSAvcPlayer.js"></script>
+  <script src="/player/Decoder.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
