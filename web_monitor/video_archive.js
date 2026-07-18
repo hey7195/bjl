@@ -3,6 +3,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const DEFAULT_PRE_MS = 75 * 1000;
+const DEFAULT_KEYFRAME_LOOKBACK_MS = 30 * 1000;
 const DEFAULT_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 function isFastBaccaratTable(table) {
@@ -108,6 +109,7 @@ class FastBaccaratVideoArchive {
   constructor(options = {}) {
     this.rootDir = options.rootDir || path.join(__dirname, "data", "round_videos");
     this.preMs = Number(options.preMs || DEFAULT_PRE_MS);
+    this.keyframeLookbackMs = Number(options.keyframeLookbackMs || DEFAULT_KEYFRAME_LOOKBACK_MS);
     this.retentionMs = Number(options.retentionMs || DEFAULT_RETENTION_MS);
     this.reconnectMs = Number(options.reconnectMs || 3000);
     this.ffmpegPath = options.ffmpegPath || findDefaultFfmpegPath(path.resolve(__dirname, ".."));
@@ -154,6 +156,7 @@ class FastBaccaratVideoArchive {
       const latestFrameAt = buffer.frames[buffer.frames.length - 1].at;
       rawFrames = buffer.frames.filter((frame) => frame.at >= latestFrameAt - this.preMs && frame.at <= latestFrameAt);
     }
+    rawFrames = includeDecodableStart(buffer.frames, rawFrames, roundAt - this.preMs, this.keyframeLookbackMs);
     const frames = withCodecConfig(buffer, selectPlayableFrames(rawFrames));
     if (!frames.length) return null;
     try {
@@ -277,7 +280,8 @@ class FastBaccaratVideoArchive {
   }
 
   _trimBuffer(buffer, now) {
-    while (buffer.frames.length && now - buffer.frames[0].at > this.preMs) {
+    const maxAgeMs = this.preMs + this.keyframeLookbackMs;
+    while (buffer.frames.length && now - buffer.frames[0].at > maxAgeMs) {
       buffer.frames.shift();
     }
   }
@@ -315,6 +319,22 @@ function roundSaveKey(round) {
 
 function selectPlayableFrames(frames) {
   return frames;
+}
+
+function includeDecodableStart(allFrames, frames, windowStartAt, lookbackMs) {
+  if (!frames.length) return frames;
+  const firstFrameAt = frames[0].at;
+  const earliestAt = windowStartAt - lookbackMs;
+  let startAt = firstFrameAt;
+  for (let index = allFrames.length - 1; index >= 0; index -= 1) {
+    const frame = allFrames[index];
+    if (frame.at > firstFrameAt || frame.at < earliestAt) continue;
+    if (hasH264NalType(5)(frame)) {
+      startAt = frame.at;
+      break;
+    }
+  }
+  return allFrames.filter((frame) => frame.at >= startAt && frame.at <= frames[frames.length - 1].at);
 }
 
 function withCodecConfig(buffer, frames) {
@@ -366,6 +386,7 @@ function removeExpiredFiles(rootDir, cutoffMs) {
 
 module.exports = {
   DEFAULT_PRE_MS,
+  DEFAULT_KEYFRAME_LOOKBACK_MS,
   DEFAULT_RETENTION_MS,
   FastBaccaratVideoArchive,
   FfmpegH264Writer,

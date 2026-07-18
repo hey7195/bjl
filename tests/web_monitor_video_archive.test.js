@@ -265,6 +265,41 @@ test("archive keeps all round frames when codec config appears near the end", ()
   assert.deepEqual([...fs.readFileSync(path.join(dir, saved.relativePath))], [...p1, ...p2, ...sps, ...pps, ...idr]);
 });
 
+test("archive starts before the pre-result window when the latest decodable keyframe is earlier", () => {
+  const dir = tempDir();
+  let current = new Date("2026-07-18T05:00:00.000Z").getTime();
+  const archive = new FastBaccaratVideoArchive({
+    rootDir: dir,
+    preMs: 2000,
+    keyframeLookbackMs: 10000,
+    now: () => current,
+    writerFactory: (filePath) => ({
+      write(payload) {
+        fs.appendFileSync(filePath, payload);
+      },
+      close() {},
+    }),
+  });
+  const table = {
+    tableCode: "71",
+    tableName: "table-71",
+    tableShortName: "table-71",
+    nameJson: "\u6781\u901f Baccarat",
+    videoUrls: ["wss://wt.shipin3hao.com:9999/9213"],
+  };
+  const idr = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x65, 0x01]);
+  const beforeWindow = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x61, 0x02]);
+  const windowFrame = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x61, 0x03]);
+  archive.observeFrame(table, idr, current);
+  current += 1000;
+  archive.observeFrame(table, beforeWindow, current);
+  current += 4000;
+  archive.observeFrame(table, windowFrame, current);
+  const saved = archive.saveRoundVideo(table, { roundId: "round-1", inningNumber: 1, receivedAt: "2026-07-18T05:00:05.000Z" });
+
+  assert.deepEqual([...fs.readFileSync(path.join(dir, saved.relativePath))], [...idr, ...beforeWindow, ...windowFrame]);
+});
+
 test("archive prefixes cached sps and pps when round frames do not include them", () => {
   const dir = tempDir();
   let current = new Date("2026-07-18T05:00:00.000Z").getTime();
