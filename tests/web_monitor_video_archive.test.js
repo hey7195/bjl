@@ -297,10 +297,12 @@ test("archive prefixes cached sps and pps when round frames do not include them"
   assert.deepEqual([...fs.readFileSync(path.join(dir, saved.relativePath))], [...sps, ...pps, ...idr]);
 });
 
-test("archive does not save the same round twice", () => {
+test("archive saves same round again when later result updates arrive", () => {
   const dir = tempDir();
+  let current = new Date("2026-07-18T05:00:00.000Z").getTime();
   const archive = new FastBaccaratVideoArchive({
     rootDir: dir,
+    now: () => current,
     writerFactory: (filePath) => ({
       write(payload) {
         fs.appendFileSync(filePath, payload);
@@ -314,11 +316,17 @@ test("archive does not save the same round twice", () => {
     tableShortName: "百28",
     videoUrls: ["wss://wt.shipin3hao.com:9999/9213"],
   };
-  const round = { roundId: "round-1", inningNumber: 1, receivedAt: "2026-07-18T05:00:01.000Z" };
-  archive.observeFrame(table, Buffer.from("first"));
+  archive.observeFrame(table, Buffer.from("first"), current);
+  const first = archive.saveRoundVideo(table, { roundId: "round-1", inningNumber: 1, receivedAt: "2026-07-18T05:00:00.000Z" });
+  current += 6000;
+  archive.observeFrame(table, Buffer.from("second"), current);
+  const second = archive.saveRoundVideo(table, { roundId: "round-1", inningNumber: 1, receivedAt: "2026-07-18T05:00:06.000Z" });
 
-  assert.notEqual(archive.saveRoundVideo(table, round), null);
-  assert.equal(archive.saveRoundVideo(table, round), null);
+  assert.notEqual(first, null);
+  assert.notEqual(second, null);
+  assert.notEqual(first.relativePath, second.relativePath);
+  assert.equal(fs.readFileSync(path.join(dir, second.relativePath), "utf8"), "firstsecond");
+  assert.equal(archive.saveRoundVideo(table, { roundId: "round-1", inningNumber: 1, receivedAt: "2026-07-18T05:00:06.000Z" }), null);
 });
 
 test("archive returns failure metadata when writer cannot start", () => {

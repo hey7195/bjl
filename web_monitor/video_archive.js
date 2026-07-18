@@ -144,7 +144,8 @@ class FastBaccaratVideoArchive {
     if (!videoUrl) return null;
     const buffer = this.buffers.get(String(table.tableCode));
     if (!buffer || !buffer.frames.length) return null;
-    if (buffer.lastSavedRoundId === String(round.roundId || "")) return null;
+    const savedKey = roundSaveKey(round);
+    if (buffer.lastSavedRoundKey === savedKey) return null;
     const relativePath = roundVideoRelativePath({ ...round, tableName: table.tableName, tableShortName: table.tableShortName, tableCode: table.tableCode });
     const filePath = path.join(this.rootDir, relativePath);
     const roundAt = timestampMs(round.receivedAt, buffer.frames[buffer.frames.length - 1].at);
@@ -208,7 +209,7 @@ class FastBaccaratVideoArchive {
       frames: frames.length,
       bytes: fileSize,
     };
-    buffer.lastSavedRoundId = String(round.roundId || "");
+    buffer.lastSavedRoundKey = savedKey;
     this.cleanupExpired();
     return saved;
   }
@@ -243,7 +244,7 @@ class FastBaccaratVideoArchive {
         frames: [],
         ws: null,
         reconnectTimer: null,
-        lastSavedRoundId: "",
+        lastSavedRoundKey: "",
         spsFrame: null,
         ppsFrame: null,
       });
@@ -306,6 +307,10 @@ function findDefaultFfmpegPath(projectRoot) {
 function timestampMs(value, fallback) {
   const parsed = value ? new Date(value).getTime() : Number.NaN;
   return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function roundSaveKey(round) {
+  return `${round.roundId || ""}:${round.receivedAt || ""}`;
 }
 
 function selectPlayableFrames(frames) {
