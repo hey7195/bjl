@@ -154,11 +154,15 @@ function renderSameCards(stats) {
 function renderSameCardGroup(group) {
   const cards = `庄[${(group.bankerCards || []).join(",")}] 闲[${(group.playerCards || []).join(",")}]`;
   const rounds = (group.rounds || [])
-    .map((round) => `${round.tableName || round.tableShortName || round.tableCode} 第${round.inningNumber || "-"}局 ${round.roundId}`)
+    .map(
+      (round) =>
+        `${round.tableName || round.tableShortName || round.tableCode} 第${round.inningNumber || "-"}局 ` +
+        `${fmtTime(round.receivedAt) || "-"} ${round.roundId}`
+    )
     .join("；");
   return `
     <div class="same-card-item">
-      <div><strong>${escapeHtml(group.count)} 次</strong> ${escapeHtml(cards)}</div>
+      <div><strong>重复 ${escapeHtml(group.count)} 次</strong> ${escapeHtml(cards)}</div>
       <div class="same-card-rounds">${escapeHtml(rounds)}</div>
     </div>
   `;

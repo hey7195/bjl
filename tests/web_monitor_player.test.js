@@ -58,6 +58,14 @@ test("web monitor page exposes inning number and same-card stats tab", () => {
   assert.match(js, /round\.inningNumber/);
 });
 
+test("same-card stats render repeated round inning and time", () => {
+  const js = read("web_monitor/public/app.js");
+
+  assert.match(js, /round\.inningNumber/);
+  assert.match(js, /fmtTime\(round\.receivedAt\)/);
+  assert.match(js, /重复/);
+});
+
 test("web monitor rounds table exposes pagination controls", () => {
   const html = read("web_monitor/public/index.html");
   const js = read("web_monitor/public/app.js");
