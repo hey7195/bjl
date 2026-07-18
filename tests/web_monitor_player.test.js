@@ -66,6 +66,13 @@ test("same-card stats render repeated round inning and time", () => {
   assert.match(js, /重复/);
 });
 
+test("same-card stats render archived round video links", () => {
+  const js = read("web_monitor/public/app.js");
+
+  assert.match(js, /round\.roundVideo\?\.url/);
+  assert.match(js, /开牌视频/);
+});
+
 test("web monitor rounds table exposes pagination controls", () => {
   const html = read("web_monitor/public/index.html");
   const js = read("web_monitor/public/app.js");

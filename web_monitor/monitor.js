@@ -27,6 +27,7 @@ class AllVenueMonitor extends EventEmitter {
       heartbeatLeadMs: Number(options.heartbeatLeadMs || 3000),
       reconnectMs: Number(options.reconnectMs || 3000),
     };
+    this.videoArchive = options.videoArchive || null;
     this.state = createRawMonitorState({
       targetTable: "",
       heartbeatLeadMs: this.options.heartbeatLeadMs,
@@ -74,6 +75,9 @@ class AllVenueMonitor extends EventEmitter {
       try {
         this.ws.close();
       } catch {}
+    }
+    if (this.videoArchive) {
+      this.videoArchive.close();
     }
     this.ws = null;
   }
@@ -135,6 +139,9 @@ class AllVenueMonitor extends EventEmitter {
       if (!saved) return;
       this.status.decodedTables += 1;
       this.tableByCode.set(String(saved.tableCode), saved);
+      if (this.videoArchive) {
+        this.videoArchive.observeTable(saved);
+      }
       for (const roundId of saved.roundIds || []) {
         this.tableByRoundId.set(String(roundId), saved);
       }
@@ -163,6 +170,24 @@ class AllVenueMonitor extends EventEmitter {
       const table = this.tableByCode.get(tableCode) || this.tableByRoundId.get(String(result.roundId)) || this.store.getTable(tableCode);
       const roundSummary = summarizeRound(result);
       const inningNumber = table ? inningNumberFromTable(table, result.roundId) : 0;
+      const archivedVideo =
+        this.videoArchive && table
+          ? this.videoArchive.saveRoundVideo(table, {
+              roundId: result.roundId,
+              inningNumber,
+              receivedAt: record.at,
+            })
+          : null;
+      const roundVideo = archivedVideo?.ok && archivedVideo.url ? archivedVideo : null;
+      if (archivedVideo && !roundVideo) {
+        this.store.saveEvent({
+          type: "round_video_failed",
+          tableCode: table.tableCode,
+          tableName: table.tableName,
+          roundId: result.roundId,
+          message: archivedVideo.error,
+        });
+      }
       const saved = this.store.saveRound({
         tableCode: table ? String(table.tableCode) : tableCode,
         tableName: table?.tableName || "",
@@ -174,6 +199,7 @@ class AllVenueMonitor extends EventEmitter {
         matchBy: table ? (String(table.tableCode) === tableCode ? "tableCode" : "roundId") : "",
         source: "GameInfoReplay",
         result,
+        ...(roundVideo ? { roundVideo } : {}),
         ...roundSummary,
       });
       this.status.decodedRounds += 1;

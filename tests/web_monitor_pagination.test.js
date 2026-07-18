@@ -60,3 +60,23 @@ test("listRounds clamps page into valid range", () => {
   assert.equal(result.pagination.page, 1);
   assert.equal(result.rounds.length, 1);
 });
+
+test("store loads jsonl files without whole-file utf8 reads", () => {
+  const originalReadFileSync = fs.readFileSync;
+  fs.readFileSync = () => {
+    throw new Error("whole-file read should not be used");
+  };
+  try {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "web-monitor-stream-load-"));
+    fs.writeFileSync(path.join(dir, "tables.jsonl"), JSON.stringify({ tableCode: "2", tableName: "百家乐2号" }) + "\n");
+    fs.writeFileSync(path.join(dir, "rounds.jsonl"), JSON.stringify({ tableCode: "2", roundId: "r1" }) + "\n");
+    fs.writeFileSync(path.join(dir, "events.jsonl"), JSON.stringify({ type: "socket_open" }) + "\n");
+
+    const store = new MonitorStore(dir);
+
+    assert.equal(store.listTables()[0].tableCode, "2");
+    assert.equal(store.listRounds("2").rounds[0].roundId, "r1");
+  } finally {
+    fs.readFileSync = originalReadFileSync;
+  }
+});

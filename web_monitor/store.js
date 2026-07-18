@@ -3,18 +3,37 @@ const path = require("node:path");
 
 function readJsonLines(filePath) {
   if (!fs.existsSync(filePath)) return [];
-  return fs
-    .readFileSync(filePath, "utf8")
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((line) => {
-      try {
-        return JSON.parse(line);
-      } catch {
-        return null;
+  const records = [];
+  const fd = fs.openSync(filePath, "r");
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  let pending = "";
+  try {
+    while (true) {
+      const bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
+      if (!bytesRead) break;
+      const chunk = pending + buffer.toString("utf8", 0, bytesRead);
+      const lines = chunk.split(/\r?\n/);
+      pending = lines.pop() || "";
+      for (const line of lines) {
+        const record = parseJsonLine(line);
+        if (record) records.push(record);
       }
-    })
-    .filter(Boolean);
+    }
+    const record = parseJsonLine(pending);
+    if (record) records.push(record);
+  } finally {
+    fs.closeSync(fd);
+  }
+  return records;
+}
+
+function parseJsonLine(line) {
+  if (!line) return null;
+  try {
+    return JSON.parse(line);
+  } catch {
+    return null;
+  }
 }
 
 class MonitorStore {
@@ -177,6 +196,7 @@ class MonitorStore {
         receivedAt: round.receivedAt || round.updatedAt,
         winner: round.winner,
         cardsText: round.cardsText,
+        roundVideo: round.roundVideo,
       });
     }
     return {

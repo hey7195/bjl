@@ -62,7 +62,22 @@ ws://6.zd10086.com/gate1/socket.io/?EIO=3&transport=websocket
 - 每个桌台显示局数，重新开局后按桌台路单从 1 开始记录。
 - 开奖列表支持分页和每页数量选择。
 - 同牌统计独立 Tab，只统计“极速百家乐”和“百家乐”，按庄闲花色点数完全一致分组。
+- 只针对“极速百家乐”保存每局开牌视频，按桌台和小时分目录，保存 24 小时后自动删除。
 - 桌台详情可播放关联 WSS 视频流。
+
+极速百家乐单局视频保存位置：
+
+```text
+web_monitor/data/round_videos/<桌台名>/<YYYYMMDD_HH>/<桌台名> 第<局数>局 <YYYYMMDD_HHMMSS> <局号>.mp4
+```
+
+示例：
+
+```text
+web_monitor/data/round_videos/Q极速百28号/20260718_13/Q极速百28号 第54局 20260718_130246 260718w2907190059054.mp4
+```
+
+视频目录属于运行数据，不提交 Git。服务会优先使用 `.venv` 里 `imageio-ffmpeg` 自带的 ffmpeg；如果没有安装 Python 依赖，则退回系统 PATH 里的 `ffmpeg`。
 
 ## 启动 GUI
 
