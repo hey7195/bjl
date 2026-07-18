@@ -163,7 +163,7 @@ test("archive stores binary frames received from the table stream", () => {
   assert.equal(archive.buffers.get("71").frames[0].payload.toString(), "frame");
 });
 
-test("archive saves only frames after the previous saved round", () => {
+test("archive saves the pre-result window for every round instead of only new frames", () => {
   const dir = tempDir();
   let current = new Date("2026-07-18T05:00:00.000Z").getTime();
   const archive = new FastBaccaratVideoArchive({
@@ -189,10 +189,10 @@ test("archive saves only frames after the previous saved round", () => {
   archive.observeFrame(table, Buffer.from("second"), current);
   const saved = archive.saveRoundVideo(table, { roundId: "round-2", inningNumber: 2, receivedAt: "2026-07-18T05:00:02.000Z" });
 
-  assert.equal(fs.readFileSync(path.join(dir, saved.relativePath), "utf8"), "second");
+  assert.equal(fs.readFileSync(path.join(dir, saved.relativePath), "utf8"), "firstsecond");
 });
 
-test("archive starts saved video from the latest keyframe when available", () => {
+test("archive keeps buffered frames even when a keyframe is available", () => {
   const dir = tempDir();
   let current = new Date("2026-07-18T05:00:00.000Z").getTime();
   const archive = new FastBaccaratVideoArchive({
@@ -222,8 +222,47 @@ test("archive starts saved video from the latest keyframe when available", () =>
   const saved = archive.saveRoundVideo(table, { roundId: "round-1", inningNumber: 1, receivedAt: "2026-07-18T05:00:04.000Z" });
 
   assert.deepEqual([...fs.readFileSync(path.join(dir, saved.relativePath))], [
-    0x00, 0x00, 0x00, 0x01, 0x67, 0x02, 0x00, 0x00, 0x00, 0x01, 0x65, 0x03, 0x00, 0x00, 0x00, 0x01, 0x61, 0x04,
+    0x00, 0x00, 0x00, 0x01, 0x61, 0x01, 0x00, 0x00, 0x00, 0x01, 0x67, 0x02, 0x00, 0x00, 0x00, 0x01, 0x65, 0x03, 0x00, 0x00, 0x00, 0x01, 0x61, 0x04,
   ]);
+});
+
+test("archive keeps all round frames when codec config appears near the end", () => {
+  const dir = tempDir();
+  let current = new Date("2026-07-18T05:00:00.000Z").getTime();
+  const archive = new FastBaccaratVideoArchive({
+    rootDir: dir,
+    now: () => current,
+    writerFactory: (filePath) => ({
+      write(payload) {
+        fs.appendFileSync(filePath, payload);
+      },
+      close() {},
+    }),
+  });
+  const table = {
+    tableCode: "71",
+    tableName: "table-71",
+    tableShortName: "table-71",
+    nameJson: "\u6781\u901f Baccarat",
+    videoUrls: ["wss://wt.shipin3hao.com:9999/9213"],
+  };
+  const p1 = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x61, 0x01]);
+  const p2 = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x61, 0x02]);
+  const sps = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x67, 0x03]);
+  const pps = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x68, 0x04]);
+  const idr = Buffer.from([0x00, 0x00, 0x00, 0x01, 0x65, 0x05]);
+  archive.observeFrame(table, p1, current);
+  current += 1000;
+  archive.observeFrame(table, p2, current);
+  current += 1000;
+  archive.observeFrame(table, sps, current);
+  current += 1000;
+  archive.observeFrame(table, pps, current);
+  current += 1000;
+  archive.observeFrame(table, idr, current);
+  const saved = archive.saveRoundVideo(table, { roundId: "round-1", inningNumber: 1, receivedAt: "2026-07-18T05:00:05.000Z" });
+
+  assert.deepEqual([...fs.readFileSync(path.join(dir, saved.relativePath))], [...p1, ...p2, ...sps, ...pps, ...idr]);
 });
 
 test("archive prefixes cached sps and pps when round frames do not include them", () => {

@@ -147,7 +147,12 @@ class FastBaccaratVideoArchive {
     if (buffer.lastSavedRoundId === String(round.roundId || "")) return null;
     const relativePath = roundVideoRelativePath({ ...round, tableName: table.tableName, tableShortName: table.tableShortName, tableCode: table.tableCode });
     const filePath = path.join(this.rootDir, relativePath);
-    const rawFrames = buffer.lastSavedAt ? buffer.frames.filter((frame) => frame.at > buffer.lastSavedAt) : buffer.frames;
+    const roundAt = timestampMs(round.receivedAt, buffer.frames[buffer.frames.length - 1].at);
+    let rawFrames = buffer.frames.filter((frame) => frame.at >= roundAt - this.preMs && frame.at <= roundAt);
+    if (!rawFrames.length) {
+      const latestFrameAt = buffer.frames[buffer.frames.length - 1].at;
+      rawFrames = buffer.frames.filter((frame) => frame.at >= latestFrameAt - this.preMs && frame.at <= latestFrameAt);
+    }
     const frames = withCodecConfig(buffer, selectPlayableFrames(rawFrames));
     if (!frames.length) return null;
     try {
@@ -204,7 +209,6 @@ class FastBaccaratVideoArchive {
       bytes: fileSize,
     };
     buffer.lastSavedRoundId = String(round.roundId || "");
-    buffer.lastSavedAt = this.now();
     this.cleanupExpired();
     return saved;
   }
@@ -239,7 +243,6 @@ class FastBaccaratVideoArchive {
         frames: [],
         ws: null,
         reconnectTimer: null,
-        lastSavedAt: 0,
         lastSavedRoundId: "",
         spsFrame: null,
         ppsFrame: null,
@@ -300,11 +303,13 @@ function findDefaultFfmpegPath(projectRoot) {
   return "ffmpeg";
 }
 
+function timestampMs(value, fallback) {
+  const parsed = value ? new Date(value).getTime() : Number.NaN;
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
 function selectPlayableFrames(frames) {
-  const configIndex = findLastFrameIndex(frames, hasH264NalType(7, 8));
-  if (configIndex >= 0) return frames.slice(configIndex);
-  const idrIndex = findLastFrameIndex(frames, hasH264NalType(5));
-  return idrIndex >= 0 ? frames.slice(idrIndex) : frames;
+  return frames;
 }
 
 function withCodecConfig(buffer, frames) {
@@ -315,13 +320,6 @@ function withCodecConfig(buffer, frames) {
   if (!hasSps && buffer.spsFrame) prefix.push(buffer.spsFrame);
   if (!hasPps && buffer.ppsFrame) prefix.push(buffer.ppsFrame);
   return [...prefix, ...frames];
-}
-
-function findLastFrameIndex(frames, predicate) {
-  for (let index = frames.length - 1; index >= 0; index -= 1) {
-    if (predicate(frames[index])) return index;
-  }
-  return -1;
 }
 
 function hasH264NalType(...types) {
